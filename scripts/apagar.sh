@@ -14,7 +14,7 @@ while IFS= read -r servicio; do
 done < <(expandir_servicios "$objetivo")
 
 if [[ "$detener_motor" == "--motor" ]]; then
-  echo "Deteniendo K3s y sincronizando el USB..."
+  echo "Deteniendo K3s y sincronizando el almacenamiento..."
   sudo systemctl stop k3s
   sync
 fi

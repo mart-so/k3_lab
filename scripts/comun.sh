@@ -5,9 +5,12 @@ set -euo pipefail
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NAMESPACE="lab-so"
 
+export PATH="/usr/local/bin:$PATH"
+export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
+
 require_kubectl() {
-  command -v kubectl >/dev/null || { echo "No se encontró kubectl. Ejecute primero instalar-k3s-usb.sh." >&2; exit 1; }
-  kubectl get node >/dev/null
+  command -v kubectl >/dev/null || { echo "No se encontró kubectl. Ejecute primero sudo ./scripts/instalar-k3s-usb.sh." >&2; exit 1; }
+  kubectl get node >/dev/null 2>&1 || { echo "No se pudo conectar al clúster K3s con kubectl. Verifique que el servicio esté activo: sudo systemctl status k3s" >&2; exit 1; }
 }
 
 manifiesto() {

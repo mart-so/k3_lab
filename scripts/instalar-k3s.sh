@@ -1,0 +1,1 @@
+instalar-k3s-usb.sh

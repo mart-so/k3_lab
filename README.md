@@ -1,13 +1,13 @@
-# Guía K3s sobre Fedora USB
+# Guía K3s sobre Ubuntu y Fedora (USB / Local)
 
 Material práctico de Sistemas Operativos para desplegar servicios en un
-clúster K3s de un solo nodo, instalado en Fedora Workstation que arranca desde
-un USB. El estado de K3s y los datos de los servicios se conservan en
-`/srv/k3s-persistente`.
+clúster K3s de un solo nodo, preparado para ejecutarse en **Ubuntu** (22.04 / 24.04 LTS)
+y **Fedora Workstation**, ya sea en el sistema local o arrancando desde un pendrive USB.
+El estado de K3s y los datos de los servicios se conservan en `/srv/k3s-persistente`.
 
 ## Inicio rápido
 
-En Fedora instalado en el USB:
+En tu sistema Ubuntu o Fedora (o desde el USB):
 
 ```bash
 git clone https://github.com/jplorier/k3_lab.git
@@ -19,12 +19,15 @@ newgrp docker
 ./scripts/estado.sh
 ```
 
-El instalador requiere conexión a Internet una vez, para instalar paquetes,
-K3s y las CRD de Gateway API. Traefik y ServiceLB quedan habilitados: el
-ejemplo web se publica en `http://localhost/` mediante Gateway API. Después,
-los manifiestos, imágenes descargadas y volúmenes permanecen en el USB. Los
-tamaños de PVC son solicitudes y `local-path` no reserva ese espacio por
-adelantado. Antes de retirar la unidad, ejecutar:
+El instalador detecta automáticamente el gestor de paquetes del sistema:
+- **Ubuntu / Debian (`apt`)**: instala `curl`, `ca-certificates`, `git`, `nfs-common`, `cifs-utils`, `openssh-client`, `smbclient` y `docker.io` (si Docker no está presente). Ajusta la política de reenvío de UFW (`DEFAULT_FORWARD_POLICY=ACCEPT`) para permitir el tráfico de red de pods K3s (Flannel).
+- **Fedora / RHEL (`dnf`)**: instala `curl`, `ca-certificates`, `docker`, `git`, `nfs-utils`, `cifs-utils`, `openssh-clients` y `samba-client`.
+- Desactiva memoria de intercambio (`swapoff -a` y servicios zram).
+- Configura `/etc/docker/daemon.json` para permitir el registro inseguro local en `localhost:30500`.
+- Instala K3s con persistencia en `/srv/k3s-persistente` y las CRD estándar de Gateway API.
+- Configura el acceso a `kubectl` (`~/.kube/config` y `/etc/profile.d/k3s.sh`).
+
+Traefik y ServiceLB quedan habilitados: el ejemplo web se publica en `http://localhost/` mediante Gateway API. Después, los manifiestos, imágenes descargadas y volúmenes permanecen en `/srv/k3s-persistente`. Los tamaños de PVC son solicitudes y `local-path` no reserva ese espacio por adelantado. Antes de reiniciar, apagar o retirar la unidad USB, ejecutar:
 
 ```bash
 ./scripts/apagar.sh todos --motor
@@ -32,20 +35,19 @@ adelantado. Antes de retirar la unidad, ejecutar:
 
 ## Servicios y acceso local
 
-| Servicio | Dirección |
-| --- | --- |
-| Registro Docker | `http://localhost:30500/v2/_catalog` |
-| Aplicación de ejemplo | `http://localhost/` (Traefik + Gateway API) |
-| SFTP | `sftp -P 30022 alumno@localhost` |
-| Samba | `//localhost:30445/compartido` |
-| NFSv4 | `localhost:/` (puerto 30049) |
-| Asterisk SIP | `localhost:5060` |
-| Gitea | `http://localhost:30300` |
-| GitLab CE | `http://localhost:30080` |
-| Uptime Kuma | `http://localhost:30301` |
+| Servicio | Dirección / Acceso | Herramienta cliente sugerida |
+| --- | --- | --- |
+| Registro Docker | `http://localhost:30500/v2/_catalog` | `curl` / Docker CLI |
+| Aplicación de ejemplo | `http://localhost/` (Traefik + Gateway API) | Navegador web / `curl` |
+| SFTP | `sftp -P 30022 alumno@localhost` | `sftp` (`openssh-client`) |
+| Samba 4 | `//localhost:30445/compartido` | `smbclient //localhost/compartido -p 30445 -U alumno%utec2026` |
+| NFSv4 | `localhost:/` (puerto 30049) | `sudo mount -t nfs4 -o port=30049,vers=4 localhost:/ /mnt/nfs` |
+| Asterisk SIP | `localhost:5060` | Linphone (`sudo apt install -y linphone` o Flatpak) |
+| Gitea | `http://localhost:30300` | Navegador web / `git` |
+| GitLab CE | `http://localhost:30080` | Navegador web / `git` |
+| Uptime Kuma | `http://localhost:30301` | Navegador web |
 
-Las credenciales incluidas son únicamente valores públicos de demostración; no
-deben reutilizarse fuera de este entorno ni usarse con datos reales.
+Las credenciales incluidas son únicamente valores públicos de demostración; no deben reutilizarse fuera de este entorno ni usarse con datos reales.
 
 ## Operación
 

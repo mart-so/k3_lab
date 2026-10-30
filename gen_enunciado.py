@@ -160,7 +160,7 @@ def generar_enunciado_principal():
     d = DocMoodle()
     d.portada(
         "GUÍA PRÁCTICA · SISTEMAS OPERATIVOS",
-        "Aprender contenedores y Kubernetes con K3s en Fedora USB",
+        "Aprender contenedores y Kubernetes con K3s en Ubuntu y Fedora (USB / Local)",
         "Construcción, etiquetado y publicación de imágenes Docker en un registro propio dentro de K3s, "
         "y despliegue de servicios de infraestructura con almacenamiento persistente: SFTP, Samba 4, "
         "NFSv4, telefonía VoIP con Asterisk, servidores Git (Gitea y GitLab CE) y monitoreo con Uptime Kuma."
@@ -170,7 +170,7 @@ def generar_enunciado_principal():
         ["Objetivo", "Entorno de trabajo", "Qué vas a practicar"],
         [[
             "Aprender el ciclo de vida de imágenes y contenedores, y cómo Kubernetes declara, expone, escala y conserva servicios.",
-            "Pendrive USB 3.x (mínimo 32 GB, recomendado 64 GB) con Fedora Workstation instalado, partición o montaje persistente en "
+            "Equipo o pendrive USB 3.x con Ubuntu (22.04 / 24.04 LTS) o Fedora Workstation instalado, partición o montaje persistente en "
             + c("/srv/k3s-persistente") + ", Docker, K3s y softphone SIP (Linphone).",
             "Construir y publicar imágenes, operar Deployments, Services, PVC, Traefik, Gateway API y servicios de infraestructura."
         ]],
@@ -179,7 +179,7 @@ def generar_enunciado_principal():
 
     d.p("Al finalizar esta guía, vas a ser capaz de:")
     d.lista([
-        "configurar Fedora Workstation sobre un medio USB con montajes persistentes optimizados para memoria flash (" + c("noatime") + ") y sin memoria de intercambio (" + c("swap") + "/" + c("zram") + ") para ejecutar Kubernetes;",
+        "configurar Ubuntu o Fedora sobre un medio USB (o disco local) con montajes persistentes optimizados para memoria flash (" + c("noatime") + ") y sin memoria de intercambio (" + c("swap") + "/" + c("zram") + ") para ejecutar Kubernetes;",
         "comprender la arquitectura de " + b("K3s") + " (servidor único con SQLite integrado, " + c("containerd") + ", Flannel VXLAN, CoreDNS y " + c("local-path-provisioner") + ") y cómo persiste el estado del clúster en el pendrive;",
         "desplegar un " + b("registro de contenedores Docker (Registry v2)") + " dentro de K3s y configurar tanto el demonio Docker como " + c("containerd") + " para confiar en él;",
         "construir una imagen propia con " + c("docker build") + ", etiquetarla con " + c("docker tag") + ", publicarla con " + c("docker push") + " hacia el registro del clúster y desplegarla con actualizaciones progresivas (" + c("rolling updates") + ");",
@@ -190,12 +190,12 @@ def generar_enunciado_principal():
 
     # --- VISION GENERAL ---------------------------------------------------------
     d.h2("VISIÓN GENERAL", "Arquitectura de la guía en el pendrive USB")
-    d.p("Todo el entorno de práctica vive dentro de tu unidad USB con Fedora Workstation. Cuando encendés la máquina desde el USB, "
+    d.p("Todo el entorno de práctica vive dentro de tu sistema Ubuntu o Fedora (o pendrive USB persistente). Al iniciar el entorno, "
         "el directorio " + c("/srv/k3s-persistente") + " aloja tanto la base de datos interna del clúster K3s como los "
         "volúmenes persistentes (" + c("PersistentVolumeClaims") + ") de todos los servicios:")
 
     d.flujo([
-        caja("HOST FEDORA USB", "Demonio Docker<br>" + c("docker build / tag / push") + "<br>Clientes: " + c("sftp") + ", " + c("smbclient") + ", " + c("mount.nfs4") + ", Linphone", AZUL),
+        caja("HOST UBUNTU / FEDORA", "Demonio Docker<br>" + c("docker build / tag / push") + "<br>Clientes: " + c("sftp") + ", " + c("smbclient") + ", " + c("mount.nfs4") + ", Linphone", AZUL),
         "NodePort / Traefik",
         caja("CLÚSTER K3S (namespace: lab-so)",
              chip("Traefik :80/:443", AZUL) + chip("Registro :30500", AZUL) + chip("SFTP :30022", VERDE) + chip("Samba :30445", TEAL) +
@@ -222,7 +222,7 @@ def generar_enunciado_principal():
     )
 
     d.h2("ANTES DE EMPEZAR", "Usar un segundo pendrive para ampliar el espacio persistente", AMBAR)
-    d.p("El USB que arranca Fedora puede ser menor a 32 GB. Si el espacio libre no alcanza, conectá un segundo pendrive o SSD USB: será el almacenamiento persistente del clúster y no modifica la partición de arranque. <strong>Verificá muy cuidadosamente el dispositivo</strong> antes de formatearlo; el siguiente procedimiento borra solo el segundo pendrive elegido.")
+    d.p("Si utilizás un USB para el sistema y el espacio libre no alcanza, conectá un segundo pendrive o SSD USB: será el almacenamiento persistente del clúster y no modifica la partición de arranque. <strong>Verificá muy cuidadosamente el dispositivo</strong> antes de formatearlo; el siguiente procedimiento borra solo el segundo pendrive elegido.")
     d.code("""# Identificar ambos dispositivos por tamaño, modelo y punto de montaje
 lsblk -o NAME,SIZE,MODEL,FSTYPE,MOUNTPOINTS
 
@@ -238,28 +238,28 @@ df -h /srv/k3s-persistente""", "AMPLIACIÓN CON OTRO PENDRIVE")
     d.nota("Qué guarda el segundo pendrive", "K3s ubica su estado, imágenes y volúmenes en " + c("/srv/k3s-persistente") + ". Los PVC de " + c("local-path") + " son directorios locales: los tamaños declarados son cuotas solicitadas y no se reservan por adelantado; el consumo real aumenta con los datos escritos.", AMBAR)
 
     # --- PARTE 1: PREPARACION DEL USB Y K3S -------------------------------------
-    d.h2("PARTE 1", "Preparación de Fedora Workstation en el USB e instalación de K3s")
-    d.p("Cuando ejecutamos un sistema operativo completo y un orquestador de contenedores sobre un pendrive USB, debemos "
+    d.h2("PARTE 1", "Preparación de Ubuntu / Fedora e instalación de K3s")
+    d.p("Cuando ejecutamos un sistema operativo completo y un orquestador de contenedores sobre un pendrive USB o máquina local, debemos "
         "cuidar tres aspectos de arquitectura de sistemas operativos:")
     d.lista([
         b("Desgaste y latencia de memoria flash:") + " montamos la partición de datos con las opciones " + c("noatime,commit=60") + " en " + c("/etc/fstab") + " para evitar una escritura en el inodo por cada lectura de archivo y agrupar confirmaciones del journal de " + c("ext4") + ".",
-        b("Desactivación de Swap y ZRAM:") + " Fedora Workstation crea por defecto un dispositivo de intercambio comprimido en RAM (" + c("zram0") + "). El " + c("kubelet") + " de Kubernetes exige que el intercambio esté desactivado para garantizar un comportamiento determinista de los límites de memoria (" + c("cgroups") + ").",
+        b("Desactivación de Swap y ZRAM:") + " Tanto Ubuntu como Fedora configuran mecanismos de intercambio (swapfile o zram0). El " + c("kubelet") + " de Kubernetes exige que el intercambio esté desactivado para garantizar un comportamiento determinista de los límites de memoria (" + c("cgroups") + ").",
         b("Persistencia unificada en ") + c("/srv/k3s-persistente") + ":" + " configuramos K3s mediante " + c("/etc/rancher/k3s/config.yaml") + " con " + c("data-dir: /srv/k3s-persistente/k3s") + " y " + c("default-local-storage-path: /srv/k3s-persistente/pv") + ". Así, aunque cambies de computadora, llevás todo el clúster y sus volúmenes en el bolsillo."
     ])
 
     d.h3("1.1. Clonar el repositorio y ejecutar el instalador automatizado")
-    d.p("Si tu pendrive tiene una partición dedicada para datos, etiquetala como " + c("K3S_DATOS") + " (o pasale el dispositivo como argumento al script). Si instalaste Fedora en una única partición raíz dentro del USB, el script usará directamente " + c("/srv/k3s-persistente") + " sobre esa partición:")
+    d.p("Si tu pendrive tiene una partición dedicada para datos, etiquetala como " + c("K3S_DATOS") + " (o pasale el dispositivo como argumento al script). Si instalaste en una única partición raíz (en USB o en disco local), el script usará directamente " + c("/srv/k3s-persistente") + " sobre esa partición:")
     d.code("""git clone https://github.com/jplorier/k3_lab.git
 cd k3_lab
 
-# Opción A: usando el directorio /srv/k3s-persistente en la partición actual del USB
+# Opción A: usando el directorio /srv/k3s-persistente en la partición actual
 sudo ./scripts/instalar-k3s-usb.sh
 
 # Opción B: indicando una partición dedicada del USB (por ejemplo /dev/sdb4)
 # sudo ./scripts/instalar-k3s-usb.sh /dev/sdb4
 
 # Aplicar el grupo docker a tu sesión actual sin cerrar la terminal
-newgrp docker""", "TERMINAL EN FEDORA WORKSTATION")
+newgrp docker""", "TERMINAL EN UBUNTU O FEDORA")
 
     d.h3("1.2. Verificar los archivos de configuración aplicados")
     d.p("Inspeccioná cómo quedaron configurados K3s y su motor de contenedores para usar el montaje persistente y confiar en el registro local que correrá en el puerto " + c("30500") + ":")
@@ -372,7 +372,7 @@ smbclient -L //localhost -p 30445 -U alumno%utec2026
 # Subir y listar un archivo en el recurso autenticado 'compartido'
 smbclient //localhost/compartido -p 30445 -U alumno%utec2026 -c "put README.md; ls"
 
-# Opcional: montar el recurso SMB en un directorio local de Fedora
+# Opcional: montar el recurso SMB en un directorio local del host
 sudo mkdir -p /mnt/samba
 sudo mount -t cifs //localhost/compartido /mnt/samba -o port=30445,username=alumno,password=utec2026,uid=$(id -u),gid=$(id -g)
 ls -la /mnt/samba
@@ -382,19 +382,19 @@ sudo umount /mnt/samba""", "PRUEBA DE SAMBA 4")
     d.p("NFSv4 es el estándar nativo de sistemas UNIX/Linux para montar árboles de directorios remotos a través del VFS del núcleo. A diferencia de NFSv3, NFSv4 concentra el tráfico en un único puerto TCP (" + c("2049") + ", expuesto como NodePort " + c("30049") + ") sin depender de puertos efímeros de " + c("rpc.mountd") + ":")
     d.code("""./scripts/encender.sh nfs
 
-# Montar la exportación raíz NFSv4 en /mnt/nfs desde Fedora
+# Montar la exportación raíz NFSv4 en /mnt/nfs desde el host
 sudo mkdir -p /mnt/nfs
 sudo mount -t nfs4 -o port=30049,vers=4 localhost:/ /mnt/nfs
 
 # Verificar el archivo de bienvenida y crear un archivo persistente
 cat /mnt/nfs/LEAME-NFS.txt
-echo "Escrito desde Fedora $(date)" | sudo tee /mnt/nfs/prueba-nfs.txt
+echo "Escrito desde el host $(date)" | sudo tee /mnt/nfs/prueba-nfs.txt
 ls -la /mnt/nfs
 
 # Desmontar al terminar la prueba
 sudo umount /mnt/nfs""", "PRUEBA DE NFSV4")
 
-    d.tarea("TAREA 3.1", "Subí un archivo por SFTP, otro por Samba 4 y otro por NFSv4. Luego ejecutá " + c("sudo ls -la /srv/k3s-persistente/pv/") + " en Fedora y localizá en qué carpeta física del pendrive USB quedó almacenado cada uno.")
+    d.tarea("TAREA 3.1", "Subí un archivo por SFTP, otro por Samba 4 y otro por NFSv4. Luego ejecutá " + c("sudo ls -la /srv/k3s-persistente/pv/") + " en la terminal y localizá en qué carpeta física del pendrive USB quedó almacenado cada uno.")
     d.informe("Compará en una tabla SFTP, Samba 4 y NFSv4 indicando: protocolo de transporte, mecanismo de autenticación, si requiere soporte en el núcleo del cliente y en qué escenario elegirías cada uno.")
 
     # --- PARTE 4: TELEFONIA VOIP CON ASTERISK -----------------------------------
@@ -422,7 +422,7 @@ kubectl exec -n lab-so deploy/asterisk -- asterisk -rx "pjsip show endpoints"
 kubectl exec -n lab-so deploy/asterisk -- asterisk -rx "dialplan show laboratorio-utec\"""", "VERIFICACIÓN DE LA CENTRAL ASTERISK")
 
     d.h3("4.2. Conectarse con un Softphone SIP (Linphone) y realizar llamadas", ROSA)
-    d.p("Podés instalar " + b("Linphone") + " en Fedora Workstation (" + c("sudo dnf install -y linphone") + ") o usar una app SIP en tu celular conectado a la misma red:")
+    d.p("Podés instalar " + b("Linphone") + " en tu sistema (" + c("sudo apt install -y linphone") + " en Ubuntu o " + c("sudo dnf install -y linphone") + " en Fedora) o usar una app SIP en tu celular conectado a la misma red:")
     d.lista([
         "Abrí Linphone y elegí " + b("Usar una cuenta SIP") + ".",
         "Completá: Usuario " + c("1001") + ", Dominio SIP " + c("localhost:5060") + " (o la IP de la PC en la LAN si llamás desde otra máquina), Contraseña " + c("utecvoip") + ", Transporte " + c("UDP") + ".",
@@ -481,13 +481,13 @@ smbclient //localhost/compartido -p 30445 -U alumno%utec2026 -c "ls"
 
     d.nota("Cuidado al desconectar el pendrive USB",
            "Nunca retires el pendrive USB en caliente mientras los contenedores o la base de datos de K3s están escribiendo. "
-           "Ejecutá siempre primero " + c("./scripts/apagar.sh todos --motor") + " o apagá el sistema Fedora Workstation desde el menú del escritorio.",
+           "Ejecutá siempre primero " + c("./scripts/apagar.sh todos --motor") + " o apagá el sistema desde el menú del escritorio.",
            AMBAR)
 
     # --- PREGUNTAS DE AUTOEVALUACION --------------------------------------------
     d.h2("AUTOEVALUACIÓN", "Preguntas de repaso de la guía", BOSQUE)
     preguntas = [
-        ("¿Por qué Kubernetes exige desactivar la memoria swap (incluyendo zram0 en Fedora)?",
+        ("¿Por qué Kubernetes exige desactivar la memoria swap (incluyendo zram / swapfile)?",
          "El planificador de Kubernetes asigna Pods a los nodos según sus solicitudes y límites de memoria RAM (" + c("requests") + " y " + c("limits") + " gobernados por " + c("cgroups") + "). Si el núcleo envía páginas de un contenedor a swap, el aislamiento de rendimiento se vuelve impredecible y un contenedor que excede su memoria tarda mucho más en ser detectado por el OOM Killer."),
         ("¿Por qué montamos la partición persistente del pendrive USB con las opciones " + c("noatime,commit=60") + "?",
          "Las memorias flash NAND de los pendrives USB tienen una cantidad limitada de ciclos de borrado/escritura y alta latencia en escrituras pequeñas aleatorias. Con " + c("noatime") + " el sistema de archivos no escribe en el disco cada vez que se lee un archivo, y con " + c("commit=60") + " agrupa las confirmaciones del journal de " + c("ext4") + " cada 60 segundos."),
@@ -547,7 +547,8 @@ sudo ./scripts/instalar-k3s-usb.sh /dev/sdb1""", "USB ADICIONAL PARA DATOS")
 
     d.h2("PASO 3", "Inicialización automática del entorno", TEAL)
     d.p("Una vez que arranques Fedora Workstation desde tu pendrive USB, abrí una terminal y ejecutá:")
-    d.code("""sudo dnf install -y git
+    d.code("""# En Ubuntu: sudo apt update && sudo apt install -y git
+# En Fedora: sudo dnf install -y git
 git clone https://github.com/jplorier/k3_lab.git ~/k3_lab
 cd ~/k3_lab
 sudo ./scripts/instalar-k3s-usb.sh
