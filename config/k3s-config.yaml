@@ -1,6 +1,5 @@
 data-dir: /srv/k3s-persistente/k3s
 default-local-storage-path: /srv/k3s-persistente/pv
 write-kubeconfig-mode: "0644"
-disable:
 kubelet-arg:
   - "fail-swap-on=false"
